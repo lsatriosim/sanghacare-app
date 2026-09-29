@@ -1,0 +1,39 @@
+name: sanghacare_staff
+description: SanghaCare staff app — ticket queue, self-assign, resolve, push notifications.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Backend
+  supabase_flutter: ^2.5.6
+
+  # State management (industry standard: Riverpod w/ code generation)
+  flutter_riverpod: ^3.0.0
+  riverpod_annotation: ^4.0.0
+
+  # Navigation
+  go_router: ^14.2.0
+
+  # Push notifications
+  firebase_core: ^3.1.0
+  firebase_messaging: ^15.0.2
+
+  # Utilities
+  intl: ^0.19.0
+  cupertino_icons: ^1.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.9
+  riverpod_generator: ^4.0.0
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
