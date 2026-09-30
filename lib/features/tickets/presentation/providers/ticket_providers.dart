@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -22,58 +23,53 @@ TicketRepository ticketRepository(Ref ref) {
 class OpenTickets extends _$OpenTickets {
   @override
   Future<List<Ticket>> build() async {
-    final repo = ref.watch(ticketRepositoryProvider);
+    // Watch the master list instead of making a new network call
+    final allTickets = await ref.watch(allTicketsStreamProvider.future);
 
-    // Re-fetch whenever the raw table changes.
-    ref.listen(_ticketChangesProvider, (_, __) {
-      ref.invalidateSelf();
-    });
-
-    return repo.fetchOpenTickets();
+    // Filter in-memory for pending or in_progress
+    return allTickets
+        .where((t) => t.status.name == 'pending' || t.status.name == 'in_progress')
+        .toList();
   }
 
   Future<void> assignToMe(int ticketId) async {
     final staffId = ref.read(authControllerProvider).value?.id;
     if (staffId == null) return;
-
-    final repo = ref.read(ticketRepositoryProvider);
-
-    // Optimistic update: reflect the change immediately, then let the
-    // realtime listener above reconcile with the server's actual state.
-    // final current = state.value ?? [];
-    // state = AsyncData(
-    //   current
-    //       .map((t) => t.id == ticketId
-    //           ? t.copyWith(status: TicketStatus.inProgress, assignedToId: staffId)
-    //           : t)
-    //       .toList(),
-    // );
-
-    await repo.assignToMe(ticketId, staffId);
+    
+    // Perform the database mutation via repository
+    await ref.read(ticketRepositoryProvider).assignToMe(ticketId, staffId);
+    // Note: The realtime stream will automatically trigger AllTicketsStream to refresh!
   }
 
   Future<void> markResolved(int ticketId) async {
-    final repo = ref.read(ticketRepositoryProvider);
-
-    // Resolved tickets drop out of the "open" list entirely.
-    final current = state.value ?? [];
-    state = AsyncData(current.where((t) => t.id != ticketId).toList());
-
-    await repo.markResolved(ticketId);
+    await ref.read(ticketRepositoryProvider).markResolved(ticketId);
   }
 }
 
+/// My tickets: derived locally from the master cache
+@riverpod
+class MyTickets extends _$MyTickets {
+  @override
+  Future<List<Ticket>> build() async {
+    final allTickets = await ref.watch(allTicketsStreamProvider.future);
+    final staffId = ref.read(authControllerProvider).value?.id;
+    
+    if (staffId == null) return [];
+
+    // Filter in-memory where assigned_to matches current staff
+    return allTickets.where((t) => t.assignedToId == staffId).toList();
+  }
+}
+
+/// Completed tickets: derived locally from the master cache
 @riverpod
 class CompletedTickets extends _$CompletedTickets {
   @override
   Future<List<Ticket>> build() async {
-    final repo = ref.watch(ticketRepositoryProvider);
+    final allTickets = await ref.watch(allTicketsStreamProvider.future);
 
-    ref.listen(_ticketChangesProvider, (_, __) {
-      ref.invalidateSelf();
-    });
-
-    return repo.fetchCompletedTickets();
+    // Filter in-memory for resolved status
+    return allTickets.where((t) => t.status.name == 'resolved').toList();
   }
 }
 
@@ -82,4 +78,19 @@ class CompletedTickets extends _$CompletedTickets {
 Stream<List<Map<String, dynamic>>> _ticketChanges(Ref ref) {
   final repo = ref.watch(ticketRepositoryProvider);
   return repo.watchTicketsRaw();
+}
+
+@riverpod
+class AllTicketsStream extends _$AllTicketsStream {
+  @override
+  Future<List<Ticket>> build() async {
+    final repo = ref.watch(ticketRepositoryProvider);
+
+    // Re-fetch the master list whenever *anything* changes in the table
+    ref.listen(_ticketChangesProvider, (_, __) {
+      ref.invalidateSelf();
+    });
+
+    return repo.fetchAllTickets();
+  }
 }

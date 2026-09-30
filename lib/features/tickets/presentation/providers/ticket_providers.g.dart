@@ -91,7 +91,7 @@ final class OpenTicketsProvider
   OpenTickets create() => OpenTickets();
 }
 
-String _$openTicketsHash() => r'880a81214dc2fa33b402805f3c617deb169af6c1';
+String _$openTicketsHash() => r'5d6ce7e7b5e0ca2f8b2fda660d62be1c281c6af1';
 
 /// Open tickets (pending + in_progress), kept live via Supabase Realtime.
 ///
@@ -114,11 +114,62 @@ abstract class _$OpenTickets extends $AsyncNotifier<List<Ticket>> {
   }
 }
 
+/// My tickets: derived locally from the master cache
+
+@ProviderFor(MyTickets)
+final myTicketsProvider = MyTicketsProvider._();
+
+/// My tickets: derived locally from the master cache
+final class MyTicketsProvider
+    extends $AsyncNotifierProvider<MyTickets, List<Ticket>> {
+  /// My tickets: derived locally from the master cache
+  MyTicketsProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'myTicketsProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$myTicketsHash();
+
+  @$internal
+  @override
+  MyTickets create() => MyTickets();
+}
+
+String _$myTicketsHash() => r'fe7560678bcfb1b8faedbb084660d2c462429bc1';
+
+/// My tickets: derived locally from the master cache
+
+abstract class _$MyTickets extends $AsyncNotifier<List<Ticket>> {
+  FutureOr<List<Ticket>> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<List<Ticket>>, List<Ticket>>;
+    final element = ref.element as $ClassProviderElement<
+        AnyNotifier<AsyncValue<List<Ticket>>, List<Ticket>>,
+        AsyncValue<List<Ticket>>,
+        Object?,
+        Object?>;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// Completed tickets: derived locally from the master cache
+
 @ProviderFor(CompletedTickets)
 final completedTicketsProvider = CompletedTicketsProvider._();
 
+/// Completed tickets: derived locally from the master cache
 final class CompletedTicketsProvider
     extends $AsyncNotifierProvider<CompletedTickets, List<Ticket>> {
+  /// Completed tickets: derived locally from the master cache
   CompletedTicketsProvider._()
       : super(
           from: null,
@@ -138,7 +189,9 @@ final class CompletedTicketsProvider
   CompletedTickets create() => CompletedTickets();
 }
 
-String _$completedTicketsHash() => r'6b48319cd9ac2ef20c7cb9f75554ee613c3cc01c';
+String _$completedTicketsHash() => r'a30fca33ab481233ed18d2ae763ad5782a9807ef';
+
+/// Completed tickets: derived locally from the master cache
 
 abstract class _$CompletedTickets extends $AsyncNotifier<List<Ticket>> {
   FutureOr<List<Ticket>> build();
@@ -197,3 +250,44 @@ final class _TicketChangesProvider extends $FunctionalProvider<
 }
 
 String _$_ticketChangesHash() => r'e419b178d36ff468c8db3ec6024a2ac35f127c89';
+
+@ProviderFor(AllTicketsStream)
+final allTicketsStreamProvider = AllTicketsStreamProvider._();
+
+final class AllTicketsStreamProvider
+    extends $AsyncNotifierProvider<AllTicketsStream, List<Ticket>> {
+  AllTicketsStreamProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'allTicketsStreamProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$allTicketsStreamHash();
+
+  @$internal
+  @override
+  AllTicketsStream create() => AllTicketsStream();
+}
+
+String _$allTicketsStreamHash() => r'00d6613eb7b8459ebfa1a3e514a02eee5d9c9e55';
+
+abstract class _$AllTicketsStream extends $AsyncNotifier<List<Ticket>> {
+  FutureOr<List<Ticket>> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<List<Ticket>>, List<Ticket>>;
+    final element = ref.element as $ClassProviderElement<
+        AnyNotifier<AsyncValue<List<Ticket>>, List<Ticket>>,
+        AsyncValue<List<Ticket>>,
+        Object?,
+        Object?>;
+    return element.handleCreate(ref, build);
+  }
+}

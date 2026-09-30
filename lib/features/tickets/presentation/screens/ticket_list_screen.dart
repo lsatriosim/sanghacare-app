@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sanghacare_staff/features/tickets/presentation/providers/ticket_action_providers.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../providers/ticket_providers.dart';
+import '../providers/ticket_action_providers.dart';
 import '../widgets/ticket_card.dart';
 
 class TicketListScreen extends ConsumerStatefulWidget {
@@ -14,7 +16,7 @@ class TicketListScreen extends ConsumerStatefulWidget {
 
 class _TicketListScreenState extends ConsumerState<TicketListScreen>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 2, vsync: this);
+  late final TabController _tabController = TabController(length: 3, vsync: this);
 
   @override
   void dispose() {
@@ -31,6 +33,7 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen>
           controller: _tabController,
           tabs: const [
             Tab(text: 'Open'),
+            Tab(text: 'My Tickets'),
             Tab(text: 'Completed'),
           ],
         ),
@@ -46,6 +49,7 @@ class _TicketListScreenState extends ConsumerState<TicketListScreen>
         controller: _tabController,
         children: const [
           _OpenTicketsTab(),
+          _MyTicketTab(),
           _CompletedTicketsTab(),
         ],
       ),
@@ -91,9 +95,51 @@ class _OpenTicketsTab extends ConsumerWidget {
                 onMarkResolved: !isUnassigned
                     ? () => ref.read(openTicketsProvider.notifier).markResolved(ticket.id)
                     : null,
+                // Hook up translation action calling your provider/actions controller
+                onTranslate: () async {
+                  return await ref.read(ticketActionsProvider.notifier).translateTicket(ticket.id);
+                },
               );
             },
           ),
+        );
+      },
+    );
+  }
+}
+
+class _MyTicketTab extends ConsumerWidget {
+  const _MyTicketTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ticketsAsync = ref.watch(myTicketsProvider);
+
+    return ticketsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, _) => _ErrorState(
+        message: error.toString(),
+        onRetry: () => ref.invalidate(myTicketsProvider),
+      ),
+      data: (tickets) {
+        if (tickets.isEmpty) {
+          return const _EmptyState(
+            icon: Icons.inbox_outlined,
+            message: 'No assigned tickets yet.',
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: tickets.length,
+          itemBuilder: (context, index) => TicketCard(
+                ticket: tickets[index],
+                onAssignMe: null,
+                onMarkResolved: null,
+                onTranslate: () async {
+                  return await ref.read(ticketActionsProvider.notifier).translateTicket(tickets[index].id);
+                },
+              )
         );
       },
     );
@@ -105,7 +151,7 @@ class _CompletedTicketsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ticketsAsync = ref.watch(completedTicketsProvider);
+    final ticketsAsync = ref.watch(openTicketsProvider);
 
     return ticketsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -116,15 +162,28 @@ class _CompletedTicketsTab extends ConsumerWidget {
       data: (tickets) {
         if (tickets.isEmpty) {
           return const _EmptyState(
-            icon: Icons.inbox_outlined,
-            message: 'No completed tickets yet.',
+            icon: Icons.task_alt,
+            message: 'No open tickets right now.',
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          itemCount: tickets.length,
-          itemBuilder: (context, index) => TicketCard(ticket: tickets[index]),
+        return RefreshIndicator(
+          onRefresh: () => ref.refresh(completedTicketsProvider.future),
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: tickets.length,
+            itemBuilder: (context, index) {
+              final ticket = tickets[index];
+              return TicketCard(
+                ticket: ticket,
+                onAssignMe: null,
+                onMarkResolved: null,
+                onTranslate: () async {
+                  return await ref.read(ticketActionsProvider.notifier).translateTicket(ticket.id);
+                },
+              );
+            },
+          ),
         );
       },
     );
