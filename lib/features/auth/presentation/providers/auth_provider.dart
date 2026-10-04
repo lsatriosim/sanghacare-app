@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../data/auth_repository.dart';
 
@@ -30,7 +31,8 @@ class AuthController extends _$AuthController {
     try {
       await repo.signInWithEmail(email: email, password: password);
     } on AuthException catch (e) {
-      return e.message; // returned to the UI to show under the form
+      debugPrint(e.message);
+      return "Sign in failed. Please try again.";
     }
 
     final userId = repo.currentUser?.id;
