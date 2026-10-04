@@ -23,17 +23,43 @@ class PushNotificationService {
       sound: true,
     );
 
+    debugPrint('Notification Authorization Status: ${settings.authorizationStatus}');
+
     if (settings.authorizationStatus == AuthorizationStatus.denied) {
       debugPrint('Push notifications denied by user.');
       return;
     }
 
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // Check if APNs token is already present
+      String? apnsToken = await _messaging.getAPNSToken();
+      debugPrint('Initial APNs Token check: $apnsToken');
+
+      int attempts = 0;
+      while (apnsToken == null && attempts < 10) {
+        await Future.delayed(const Duration(seconds: 1));
+        apnsToken = await _messaging.getAPNSToken();
+        attempts++;
+        debugPrint('Waiting for APNs token... Attempt $attempts/10');
+      }
+
+      if (apnsToken == null) {
+        debugPrint('❌ TIMEOUT: APNs token is null. This usually means:');
+        debugPrint('1. You are running on a simulator (must use a physical device).');
+        debugPrint('2. "Push Notifications" capability is missing in Xcode Signing & Capabilities.');
+        debugPrint('3. Your provisioning profile does not support push notifications.');
+        return;
+      }
+      debugPrint('✅ APNs Token obtained successfully: $apnsToken');
+    }
+
     final token = await _messaging.getToken();
+    debugPrint('FCM Token: $token');
+    
     if (token != null) {
       await _upsertToken(profileId, token);
     }
 
-    // Token can rotate (app reinstall, OS-level refresh) — keep it current.
     _messaging.onTokenRefresh.listen((newToken) => _upsertToken(profileId, newToken));
   }
 
@@ -52,6 +78,13 @@ class PushNotificationService {
   /// Call on sign-out so a shared/reused device stops receiving this
   /// user's notifications.
   Future<void> removeTokenForCurrentDevice(String profileId) async {
+    // For iOS on sign out, we can safely skip waiting for APNs if it's already cleared,
+    // but we still want to grab the FCM token if available.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      final apnsToken = await _messaging.getAPNSToken();
+      if (apnsToken == null) return;
+    }
+
     final token = await _messaging.getToken();
     if (token == null) return;
 
