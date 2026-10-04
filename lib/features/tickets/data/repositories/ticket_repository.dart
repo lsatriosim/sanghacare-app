@@ -11,7 +11,7 @@ class TicketRepository {
   TicketRepository(this._client);
 
   final SupabaseClient _client;
-  final String baseUrl = "http://localhost:3000";
+  final String baseUrl = "https://sanghacare.vercel.app";
 
   static const _selectWithJoins = '''
     *,
