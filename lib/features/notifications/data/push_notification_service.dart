@@ -1,20 +1,14 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Registers this device for push notifications and keeps the token in
-/// sync with Supabase. Call [initialize] once, after the user is signed
-/// in (we need their profile id to attach the token to).
-///
-/// Note: iOS requires explicit permission (handled here) and a real
-/// Apple Push Notification key configured in your Firebase project —
-/// the FCM token itself is what Firebase uses to relay to APNs, so this
-/// same code path covers both platforms.
 class PushNotificationService {
   PushNotificationService(this._client);
 
   final SupabaseClient _client;
   final _messaging = FirebaseMessaging.instance;
+  final _localNotifications = FlutterLocalNotificationsPlugin();
 
   Future<void> initialize(String profileId) async {
     final settings = await _messaging.requestPermission(
@@ -30,8 +24,30 @@ class PushNotificationService {
       return;
     }
 
+    // 1. Configure iOS foreground presentation to show alert and play sound
+    await _messaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    // 2. Create high priority notification channel for Android (plays sound on Android 8+)
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      const androidChannel = AndroidNotificationChannel(
+        'high_importance_channel',
+        'High Importance Notifications',
+        description: 'This channel is used for important ticket alerts.',
+        importance: Importance.max,
+        playSound: true,
+      );
+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(androidChannel);
+    }
+
     if (defaultTargetPlatform == TargetPlatform.iOS) {
-      // Check if APNs token is already present
       String? apnsToken = await _messaging.getAPNSToken();
       debugPrint('Initial APNs Token check: $apnsToken');
 
@@ -44,10 +60,7 @@ class PushNotificationService {
       }
 
       if (apnsToken == null) {
-        debugPrint('❌ TIMEOUT: APNs token is null. This usually means:');
-        debugPrint('1. You are running on a simulator (must use a physical device).');
-        debugPrint('2. "Push Notifications" capability is missing in Xcode Signing & Capabilities.');
-        debugPrint('3. Your provisioning profile does not support push notifications.');
+        debugPrint('❌ TIMEOUT: APNs token is null.');
         return;
       }
       debugPrint('✅ APNs Token obtained successfully: $apnsToken');
@@ -68,18 +81,14 @@ class PushNotificationService {
       {
         'profile_id': profileId,
         'platform': defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android',
-        'subscription': {'token': token},
+        'subscription': {'fcm_token': token},
         'last_used_at': DateTime.now().toUtc().toIso8601String(),
       },
       onConflict: 'profile_id, platform',
     );
   }
 
-  /// Call on sign-out so a shared/reused device stops receiving this
-  /// user's notifications.
   Future<void> removeTokenForCurrentDevice(String profileId) async {
-    // For iOS on sign out, we can safely skip waiting for APNs if it's already cleared,
-    // but we still want to grab the FCM token if available.
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       final apnsToken = await _messaging.getAPNSToken();
       if (apnsToken == null) return;
@@ -92,6 +101,6 @@ class PushNotificationService {
         .from('push_subscriptions')
         .delete()
         .eq('profile_id', profileId)
-        .eq('subscription->>token', token);
+        .eq('platform', defaultTargetPlatform == TargetPlatform.iOS ? 'ios' : 'android');
   }
 }

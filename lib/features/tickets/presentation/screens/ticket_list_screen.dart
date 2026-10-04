@@ -92,9 +92,7 @@ class _OpenTicketsTab extends ConsumerWidget {
                 onAssignMe: isUnassigned
                     ? () => ref.read(openTicketsProvider.notifier).assignToMe(ticket.id)
                     : null,
-                onMarkResolved: !isUnassigned
-                    ? () => ref.read(openTicketsProvider.notifier).markResolved(ticket.id)
-                    : null,
+                onMarkResolved: null,
                 // Hook up translation action calling your provider/actions controller
                 onTranslate: () async {
                   return await ref.read(ticketActionsProvider.notifier).translateTicket(ticket.id);
@@ -135,7 +133,7 @@ class _MyTicketTab extends ConsumerWidget {
           itemBuilder: (context, index) => TicketCard(
                 ticket: tickets[index],
                 onAssignMe: null,
-                onMarkResolved: null,
+                onMarkResolved: () => ref.read(openTicketsProvider.notifier).markResolved(tickets[index].id),
                 onTranslate: () async {
                   return await ref.read(ticketActionsProvider.notifier).translateTicket(tickets[index].id);
                 },
