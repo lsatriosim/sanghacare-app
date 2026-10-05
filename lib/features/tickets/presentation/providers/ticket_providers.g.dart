@@ -91,7 +91,7 @@ final class OpenTicketsProvider
   OpenTickets create() => OpenTickets();
 }
 
-String _$openTicketsHash() => r'5d6ce7e7b5e0ca2f8b2fda660d62be1c281c6af1';
+String _$openTicketsHash() => r'42e50edb9549c826f2d26c514fa6baafb8f3efde';
 
 /// Open tickets (pending + in_progress), kept live via Supabase Realtime.
 ///
@@ -100,6 +100,50 @@ String _$openTicketsHash() => r'5d6ce7e7b5e0ca2f8b2fda660d62be1c281c6af1';
 /// perfectly fine and far simpler than hand-rolling merge logic.
 
 abstract class _$OpenTickets extends $AsyncNotifier<List<Ticket>> {
+  FutureOr<List<Ticket>> build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<AsyncValue<List<Ticket>>, List<Ticket>>;
+    final element = ref.element as $ClassProviderElement<
+        AnyNotifier<AsyncValue<List<Ticket>>, List<Ticket>>,
+        AsyncValue<List<Ticket>>,
+        Object?,
+        Object?>;
+    return element.handleCreate(ref, build);
+  }
+}
+
+@ProviderFor(OtherStaffInProgressTickets)
+final otherStaffInProgressTicketsProvider =
+    OtherStaffInProgressTicketsProvider._();
+
+final class OtherStaffInProgressTicketsProvider
+    extends $AsyncNotifierProvider<OtherStaffInProgressTickets, List<Ticket>> {
+  OtherStaffInProgressTicketsProvider._()
+      : super(
+          from: null,
+          argument: null,
+          retry: null,
+          name: r'otherStaffInProgressTicketsProvider',
+          isAutoDispose: true,
+          dependencies: null,
+          $allTransitiveDependencies: null,
+        );
+
+  @override
+  String debugGetCreateSourceHash() => _$otherStaffInProgressTicketsHash();
+
+  @$internal
+  @override
+  OtherStaffInProgressTickets create() => OtherStaffInProgressTickets();
+}
+
+String _$otherStaffInProgressTicketsHash() =>
+    r'8ea2af308e425095844f12af11e1b9dd5af5cec7';
+
+abstract class _$OtherStaffInProgressTickets
+    extends $AsyncNotifier<List<Ticket>> {
   FutureOr<List<Ticket>> build();
   @$mustCallSuper
   @override

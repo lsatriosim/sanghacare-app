@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sanghacare_staff/features/tickets/data/models/ticket.dart';
 import 'package:sanghacare_staff/features/tickets/presentation/providers/ticket_action_providers.dart';
 
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -62,46 +63,116 @@ class _OpenTicketsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final ticketsAsync = ref.watch(openTicketsProvider);
+    final openTicketsAsync = ref.watch(openTicketsProvider);
+    final otherStaffTicketsAsync = ref.watch(otherStaffInProgressTicketsProvider);
 
-    return ticketsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => _ErrorState(
+    // Show loading if either provider is fetching
+    if (openTicketsAsync.isLoading || otherStaffTicketsAsync.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    // Handle error state if either provider throws
+    if (openTicketsAsync.hasError || otherStaffTicketsAsync.hasError) {
+      final error = openTicketsAsync.error ?? otherStaffTicketsAsync.error;
+      return _ErrorState(
         message: error.toString(),
-        onRetry: () => ref.invalidate(openTicketsProvider),
-      ),
-      data: (tickets) {
-        if (tickets.isEmpty) {
-          return const _EmptyState(
-            icon: Icons.task_alt,
-            message: 'No open tickets right now.',
-          );
-        }
+        onRetry: () {
+          ref.invalidate(openTicketsProvider);
+          ref.invalidate(otherStaffInProgressTicketsProvider);
+        },
+      );
+    }
 
-        return RefreshIndicator(
-          onRefresh: () => ref.refresh(openTicketsProvider.future),
-          child: ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: tickets.length,
-            itemBuilder: (context, index) {
-              final ticket = tickets[index];
-              final isUnassigned = ticket.assignedToId == null;
+    final openTickets = openTicketsAsync.value ?? [];
+    final otherStaffTickets = otherStaffTicketsAsync.value ?? [];
 
-              return TicketCard(
-                ticket: ticket,
-                onAssignMe: isUnassigned
-                    ? () => ref.read(openTicketsProvider.notifier).assignToMe(ticket.id)
-                    : null,
-                onMarkResolved: null,
-                // Hook up translation action calling your provider/actions controller
-                onTranslate: () async {
-                  return await ref.read(ticketActionsProvider.notifier).translateTicket(ticket.id);
-                },
-              );
-            },
-          ),
-        );
+    if (openTickets.isEmpty && otherStaffTickets.isEmpty) {
+      return const _EmptyState(
+        icon: Icons.task_alt,
+        message: 'No open or in-progress tickets right now.',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await Future.wait([
+          ref.refresh(openTicketsProvider.future),
+          ref.refresh(otherStaffInProgressTicketsProvider.future),
+        ]);
       },
+      child: CustomScrollView(
+        slivers: [
+          // Section 1: Unassigned / Open Tickets
+          if (openTickets.isNotEmpty) ...[
+            const _SectionHeader(title: 'Unassigned Open Tickets'),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final ticket = openTickets[index];
+                  return TicketCard(
+                    ticket: ticket,
+                    onAssignMe: () => ref
+                        .read(openTicketsProvider.notifier)
+                        .assignToMe(ticket.id),
+                    onMarkResolved: null,
+                    onTranslate: () async {
+                      return await ref
+                          .read(ticketActionsProvider.notifier)
+                          .translateTicket(ticket.id);
+                    },
+                  );
+                },
+                childCount: openTickets.length,
+              ),
+            ),
+          ],
+
+          // Section 2: Other Staff In-Progress Tickets
+          if (otherStaffTickets.isNotEmpty) ...[
+            const _SectionHeader(title: 'In-Progress by Other Staff'),
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final ticket = otherStaffTickets[index];
+                  return TicketCard(
+                    ticket: ticket,
+                    onAssignMe: null,
+                    onMarkResolved: null,
+                    onTranslate: () async {
+                      return await ref
+                          .read(ticketActionsProvider.notifier)
+                          .translateTicket(ticket.id);
+                    },
+                  );
+                },
+                childCount: otherStaffTickets.length,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+        ),
+      ),
     );
   }
 }
@@ -133,7 +204,7 @@ class _MyTicketTab extends ConsumerWidget {
           itemBuilder: (context, index) => TicketCard(
                 ticket: tickets[index],
                 onAssignMe: null,
-                onMarkResolved: () => ref.read(openTicketsProvider.notifier).markResolved(tickets[index].id),
+                onMarkResolved: tickets[index].status == TicketStatus.inProgress ? () => ref.read(openTicketsProvider.notifier).markResolved(tickets[index].id) : null,
                 onTranslate: () async {
                   return await ref.read(ticketActionsProvider.notifier).translateTicket(tickets[index].id);
                 },

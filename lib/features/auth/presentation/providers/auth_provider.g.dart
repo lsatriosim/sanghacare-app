@@ -81,7 +81,7 @@ final class AuthControllerProvider
   AuthController create() => AuthController();
 }
 
-String _$authControllerHash() => r'3a5712bc14c26283e041a22052b65bf01cdf8ccf';
+String _$authControllerHash() => r'04f2458478c84c2ef3826039efc2e27bc096a830';
 
 /// Holds the currently signed-in user (or null). The router watches this
 /// to decide whether to show the login screen or the ticket list.

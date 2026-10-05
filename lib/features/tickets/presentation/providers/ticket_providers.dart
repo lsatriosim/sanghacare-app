@@ -28,7 +28,7 @@ class OpenTickets extends _$OpenTickets {
 
     // Filter in-memory for pending or in_progress
     return allTickets
-        .where((t) => t.status.name == 'pending' || t.status.name == 'in_progress')
+        .where((t) => t.status.name == 'pending')
         .toList();
   }
 
@@ -46,18 +46,51 @@ class OpenTickets extends _$OpenTickets {
   }
 }
 
+@riverpod
+class OtherStaffInProgressTickets extends _$OtherStaffInProgressTickets {
+  @override
+  Future<List<Ticket>> build() async {
+    final staffId = ref.watch(authControllerProvider).value?.id;
+    if (staffId == null) return [];
+
+    final allTickets = await ref.watch(allTicketsStreamProvider.future);
+
+    final assignedIds = allTickets.map((t) => t.assignedToId).toList();
+
+    print(assignedIds);
+
+    return allTickets
+        .where((t) => t.status == TicketStatus.inProgress && t.assignedToId != staffId)
+        .toList();
+  }
+}
+
 /// My tickets: derived locally from the master cache
 @riverpod
 class MyTickets extends _$MyTickets {
   @override
   Future<List<Ticket>> build() async {
     final allTickets = await ref.watch(allTicketsStreamProvider.future);
-    final staffId = ref.read(authControllerProvider).value?.id;
-    
+    final staffId = ref.watch(authControllerProvider).value?.id;
+
     if (staffId == null) return [];
 
-    // Filter in-memory where assigned_to matches current staff
-    return allTickets.where((t) => t.assignedToId == staffId).toList();
+    // Filter for tickets assigned to current staff
+    final myTickets = allTickets.where((t) => t.assignedToId == staffId).toList();
+
+    // Sort: in_progress first, followed by completed/resolved
+    myTickets.sort((a, b) {
+      final aIsInProgress = a.status == TicketStatus.inProgress;
+      final bIsInProgress = b.status == TicketStatus.inProgress;
+
+      if (aIsInProgress && !bIsInProgress) return -1; // a comes first
+      if (!aIsInProgress && bIsInProgress) return 1;  // b comes first
+
+      // Optional tie-breaker: sort newest tickets first within the same status group
+      return b.createdAt.compareTo(a.createdAt);
+    });
+
+    return myTickets;
   }
 }
 
